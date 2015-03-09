@@ -1,8 +1,8 @@
-# Mozilla Slovenija Wordpress theme (mozilla.si)
+# Mozilla Irish Wordpress theme (mozillaireland.org)
 
 ## Summary
 
-WordPress OneMozilla theme for [Slovenian community](http://www.mozilla.si/), heavily based on [OneMozilla](https://github.com/mozilla/One-Mozilla-blog/tree/master/themes/OneMozilla) and current [mozilla.org](https://www.mozilla.org/) website. Tested with WordPress 3.5.1. 
+WordPress OneMozilla theme for [Irish Community](http://www.mozillaireland.org/), forked from the [Slovenian community](http://www.mozilla.si/), and [OneMozilla](https://github.com/mozilla/One-Mozilla-blog/tree/master/themes/OneMozilla) and current [mozilla.org](https://www.mozilla.org/) website. Tested with WordPress 4.1.1 
 
 Version 1.0.
 
