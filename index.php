@@ -1,4 +1,10 @@
-<?php get_header(); ?>
+<?php
+// Don't allow direct access to the theme
+if(!defined('DB_NAME')) {
+  exit('Direct template access is not allowed');
+}
+
+get_header(); ?>
 
   <div id="content-main" class="main" role="main">
 
@@ -12,7 +18,7 @@
     <?php while($featured->have_posts()): $featured->the_post(); ?>
         <li id="feature-<?php the_ID(); ?>" class="hentry feature">
           <h3 class="entry-title entry-summary">
-            <a href="<?php the_permalink(); ?>" title="<?php printf( esc_attr__( 'Permanent link to &ldquo;%s&rdquo;', 'onemozilla' ), the_title_attribute( 'echo=0' ) ); ?>" rel="bookmark">
+            <a href="<?php the_permalink(); ?>" title="<?php printf( esc_attr__( 'Permanent link to “%s”', 'onemozilla' ), the_title_attribute( 'echo=0' ) ); ?>" rel="bookmark">
             <?php if (has_post_thumbnail()) : ?>
               <?php the_post_thumbnail(array(150,150), array('alt' => "", 'title' => "")); ?>
             <?php else : ?>
@@ -39,7 +45,7 @@
 
     <?php if (fc_show_posts_nav()) : ?>
     <nav class="nav-paging">
-      <ul role="navigation">
+      <ul>
         <?php if ( $paged < $wp_query->max_num_pages ) : ?><li class="prev"><?php next_posts_link(__('Older posts','onemozilla')); ?></li><?php endif; ?>
         <?php if ( $paged > 1 ) : ?><li class="next"><?php previous_posts_link(__('Newer posts','onemozilla')); ?></li><?php endif; ?>
       </ul>

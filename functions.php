@@ -1,5 +1,5 @@
 <?php
-if (!function_exists('onemozilla_setup')):
+if ( ! function_exists( 'onemozilla_setup' ) ):
 /**
  * Sets up theme defaults and registers support for various WordPress features.
  *
@@ -37,14 +37,6 @@ function onemozilla_setup() {
   // This theme uses Featured Images (also known as post thumbnails)
   add_theme_support( 'post-thumbnails' );
 
-  // Set default image sizes
-  update_option('thumbnail_size_w', 160);
-  update_option('thumbnail_size_h', 160);
-  update_option('medium_size_w', 252);
-  update_option('medium_size_h', 0);
-  update_option('large_size_w', 600);
-  update_option('large_size_h', 0);
-
   // The height and width of your custom header.
   // Add a filter to onemozilla_header_image_width and onemozilla_header_image_height to change these values.
   define( 'HEADER_IMAGE_WIDTH', apply_filters( 'onemozilla_header_image_width', 340 ) );
@@ -52,7 +44,17 @@ function onemozilla_setup() {
 
   // Add a way for the custom header to be styled in the admin panel that controls
   // custom headers. See onemozilla_admin_header_style(), below.
-  add_custom_image_header( 'onemozilla_header_style', 'onemozilla_admin_header_style', 'onemozilla_admin_header_image' );
+  global $wp_version;
+  if ( version_compare( $wp_version, '3.4', '>=' ) ) {
+    $defaults = array(
+      'wp-head-callback' => 'onemozilla_header_style',
+      'admin-head-callback' => 'onemozilla_admin_header_style',
+      'admin-preview-callback' => 'onemozilla_admin_header_image',
+    );
+    add_theme_support( 'custom-header', $defaults );
+  } else {
+    add_custom_image_header( 'onemozilla_header_style', 'onemozilla_admin_header_style', 'onemozilla_admin_header_image' );
+  }
 
   // Disable the header text and color options
   define( 'NO_HEADER_TEXT', true );
@@ -69,25 +71,134 @@ function onemozilla_setup() {
     )
    )
   );
+
+  // We've moved the share_posts and hide_authors out of theme options but we'll bring over those settings (if they exist)
+  $options = get_option( 'onemozilla_theme_options' );
+
+  // Stash the values in variables
+  if (isset($options['color_scheme'])) {
+    $color_scheme = $options['color_scheme'];
+  }
+
+  if (isset($options['share_posts'])) {
+    $share_posts = $options['share_posts'];
+  }
+
+  if (isset($options['hide_author'])) {
+    $hide_authors = $options['hide_author'];
+  }
+
+  if ( isset($share_posts) && (get_option('onemozilla_share_posts') == null) ) {
+    update_option('onemozilla_share_posts', $share_posts);
+  }
+  if ( isset($hide_authors) && (get_option('onemozilla_hide_authors') == null) ) {
+    update_option('onemozilla_hide_authors', $hide_authors);
+  }
+  // Remove the old values from theme_options, we're only keeping the color scheme (if set)
+  if ( isset($color_scheme) ) {
+    update_option('onemozilla_theme_options', array('color_scheme' => $color_scheme));
+  }
+  else {
+    update_option('onemozilla_theme_options', array('color_scheme' => 'stone'));
+  }
+
 }
 endif; // onemozilla_setup
+add_action('after_setup_theme', 'onemozilla_setup');
+
 
 /*********
- * Tell WordPress to run onemozilla_setup() when the 'after_setup_theme' hook is run.
+ * Do some stuff when the theme is activated.
  */
-add_action( 'after_setup_theme', 'onemozilla_setup' );
+if ( ! function_exists( 'onemozilla_activate' ) ):
+  function onemozilla_activate() {
+    // Set default media options
+    update_option('thumbnail_size_w', 160, true);
+    update_option('thumbnail_size_h', 160, true);
+    update_option('thumbnail_crop', 1);
+    update_option('medium_size_w', 250, true);
+    update_option('medium_size_h', '', true);
+    update_option('large_size_w', 600, true);
+    update_option('large_size_h', '', true);
+  }
+endif; // onemozilla_activate
+add_action('after_switch_theme', 'onemozilla_activate');
+
+
+/*********
+ * Register and define the Social Sharing and Hide Authors settings
+ */
+function onemozilla_admin_init(){
+  register_setting(
+    'reading',
+    'onemozilla_share_posts'
+  );
+  add_settings_field(
+    'share_posts',
+    __( 'Social sharing', 'onemozilla' ),
+    'onemozilla_settings_field_share_posts',
+    'reading',
+    'default'
+  );
+
+  register_setting(
+    'reading',
+    'onemozilla_hide_authors'
+  );
+  add_settings_field(
+    'hide_authors',
+    __( 'Hide post authors', 'onemozilla' ),
+    'onemozilla_settings_field_hide_authors',
+    'reading',
+    'default'
+  );
+}
+add_action('admin_init', 'onemozilla_admin_init');
+
+/**
+ * Renders the Add Sharing setting field.
+ */
+function onemozilla_settings_field_share_posts() { ?>
+	<div class="layout share-posts">
+	<label>
+		<input type="checkbox" id="onemozilla_share_posts" name="onemozilla_share_posts" value="1" <?php checked( '1', get_option('onemozilla_share_posts') ); ?> />
+		<span>
+			<?php _e('Add social sharing buttons to posts and pages', 'onemozilla'); ?>
+		</span>
+		<p class="description"><?php _e('Adds buttons for Facebook, Twitter, and Google+.', 'onemozilla' ); ?></p>
+	</label>
+	</div>
+	<?php
+}
+
+/**
+ * Renders the Show Author setting field.
+ */
+function onemozilla_settings_field_hide_authors() { ?>
+	<div class="layout hide-authors">
+	<label>
+		<input type="checkbox" name="onemozilla_hide_authors" value="1" <?php checked( '1', get_option('onemozilla_hide_authors') ); ?> />
+		<span>
+			<?php _e('Hide post authors', 'onemozilla'); ?>
+		</span>
+		<p class="description"><?php _e('This removes the author byline and author bio from individual posts.', 'onemozilla' ); ?></p>
+	</label>
+	</div>
+	<?php
+}
+
 
 /*********
  * Adds classes to the array of post classes. We'll use these as style hooks for post headers.
  */
 function onemozilla_post_classes( $classes ) {
-  $options = onemozilla_get_theme_options();
+  global $post;
   $comment_count = get_comments_number($post->ID);
 
-  if ( $options['hide_author'] != 1 ) {
+  if ( get_option('onemozilla_hide_authors') != 1 ) {
     $classes[] = 'show-author';
   }
-  elseif ( $options['hide_author'] == 1 ) {
+  elseif ( get_option('onemozilla_hide_authors') == 1 ) {
     $classes[] = 'no-author';
   }
   if ( comments_open($post->ID) || pings_open($post->ID) || ($comment_count > 0) ) {
@@ -96,12 +207,13 @@ function onemozilla_post_classes( $classes ) {
   elseif ( !comments_open($post->ID) && !pings_open($post->ID) && ($comment_count == 0) ) {
     $classes[] = 'no-comments';
   }
-  if ( $options['share_posts'] == 1 ) {
+  if ( get_option('onemozilla_share_posts') == 1 ) {
     $classes[] = 'show-sharing';
   }
   return $classes;
 }
 add_filter( 'post_class', 'onemozilla_post_classes' );
+
 
 /*********
 * Use auto-excerpts for meta description if hand-crafted exerpt is missing
@@ -119,6 +231,7 @@ function fc_meta_desc() {
     } else {
       $text = $post->post_content;
     }
+    $text = do_shortcode($text);
     $text = str_replace(array("\r\n", "\r", "\n", "  "), " ", $text);
     $text = str_replace(array("\""), "", $text);
     $text = trim(strip_tags($text));
@@ -217,39 +330,50 @@ add_filter('upload_mimes', 'fc_add_mimes');
 function onemozilla_load_scripts() {
   // Load the default jQuery
   wp_enqueue_script('jquery');
-  
-  // My script - Rok Samsa
-  wp_register_script( 'myscript', get_template_directory_uri() . '/js/script.js' );
-  wp_enqueue_script( 'myscript' );
-  
-  // Scrolltofixed - Rok Samsa
-  wp_register_script( 'scrolltofixed', get_template_directory_uri() . '/js/jquery-scrolltofixed-min.js' );
-  wp_enqueue_script( 'scrolltofixed' );
-  	
+
   // Register and load the socialsharing script
   wp_register_script( 'socialshare', get_template_directory_uri() . '/js/socialshare.min.js' );
-  $options = onemozilla_get_theme_options();
-  if (($options['share_posts'] === 1) && is_singular()) {
-    wp_enqueue_script('socialshare');
+  if ( (get_option('onemozilla_share_posts') == 1) && is_singular() ) {
+    wp_enqueue_script( 'socialshare' );
   }
 
   // Load the threaded comment reply script
   if ( get_option('thread_comments') && is_singular() ) {
     wp_enqueue_script( 'comment-reply' );
   }
-  
+
   // Check required fields on comment form
   wp_register_script( 'checkcomments', get_template_directory_uri() . '/js/fc-checkcomment.js' );
   if ( get_option('require_name_email') && is_singular() ) {
     wp_enqueue_script('checkcomments');
   }
 }
-add_action('wp_enqueue_scripts', 'onemozilla_load_scripts');
+add_action( 'wp_enqueue_scripts', 'onemozilla_load_scripts' );
 
 /*********
 * Remove WP version from head (helps us evade spammers/hackers)
 */
 remove_action('wp_head', 'wp_generator');
+
+/*********
+* Catch spambots with a honeypot field in the comment form.
+* It's hidden from view with CSS so most humans will leave it blank, but robots will kindly fill it in to alert us to their presence.
+* The field has an innucuous name -- 'age' in this case -- likely to be autofilled by a robot.
+*/
+function fc_honeypot( array $data ){
+  if( !isset($_POST['comment']) && !isset($_POST['content'])) { die("No Direct Access"); }  // Make sure the form has actually been submitted
+
+  if($_POST['age']) {  // If the Honeypot field has been filled in
+    $message = _e('Sorry, you appear to be a spamming robot because you filled in the hidden spam trap field. To show you are not a spammer, submit your comment again and leave the field blank.', 'onemozilla');
+    $title = 'Spam Prevention';
+    $args = array('response' => 200);
+    wp_die( $message, $title, $args );
+    exit(0);
+  } else {
+	   return $data;
+	}
+}
+add_filter('preprocess_comment','fc_honeypot');
 
 /*********
  * Removes the default styles that are packaged with the Recent Comments widget.
@@ -265,9 +389,9 @@ add_action( 'widgets_init', 'onemozilla_remove_recent_comments_style' );
 function fc_password_form() {
   global $post;
   $label = 'pwbox-'.(empty($post->ID) ? rand() : $post->ID);
-  $output = '<form class="pwform" action="' . get_option('siteurl') . '/wp-pass.php" method="post">
-            <p>'.__("This post is password protected. To view it, please enter the password.", "onemozilla").'</p>
-            <ol><li><label for="'.$label.'">'.__("Password", "onemozilla").'</label><input name="post_password" id="'.$label.'" type="password" size="20" /></li><li><button type="submit" name="Submit">'.esc_attr__("Submit").'</button></li></ol>
+  $output = '<form class="pwform" action="' . esc_url( site_url( 'wp-login.php?action=postpass', 'login_post' ) ) . '" method="post">
+            <p>'.__('This post is password protected. To view it, please enter the password.', 'onemozilla').'</p>
+            <ol><li><label for="'.$label.'">'.__('Password', 'onemozilla').'</label><input name="post_password" id="'.$label.'" type="password" size="20" /></li><li><button type="submit" name="Submit">'.esc_attr__('Submit', 'onemozilla').'</button></li></ol>
             </form>';
 return $output;
 }
@@ -333,19 +457,24 @@ function fc_featured_meta_box($post){
   $featured = get_post_meta($post->ID, '_fc_featuredpost', true);
   ?>
   <label class="selectit" for="fc_featuredpost">
-  <input type="checkbox" name="_fc_featuredpost" id="fc_featuredpost" value="1" <?php if ($featured) { ?>checked<?php } ?> />
-  <?php _e('Feature this post?', 'onemozilla'); ?></label>
+    <input type="checkbox" name="_fc_featuredpost" id="fc_featuredpost" value="1" <?php if ($featured) { ?>checked<?php } ?> />
+    <?php _e('Make this a featured post?', 'onemozilla'); ?>
+  </label>
 <?php
 }
 
 function register_fc_featuredpost(){
-  add_meta_box('meta-featured-post', __('Featured Post'), 'fc_featured_meta_box', 'post', 'side', 'low');
+  add_meta_box('meta-featured-post', __('Featured Post', 'onemozilla'), 'fc_featured_meta_box', 'post', 'side', 'low');
 }
 add_action('admin_init', 'register_fc_featuredpost', 1);
 
 function save_fc_featuredpost() {
   global $post;
-  update_post_meta($post->ID, "_fc_featuredpost", $_POST["_fc_featuredpost"]);
+  if (isset($_POST['_fc_featuredpost'])) {
+    update_post_meta($post->ID, '_fc_featuredpost', true);
+  } else {
+    update_post_meta($post->ID, '_fc_featuredpost', false);
+  }
 }
 add_action('save_post', 'save_fc_featuredpost');
 
@@ -426,74 +555,17 @@ add_filter( 'wp_page_menu_args', 'onemozilla_page_menu_args' );
  */
 function onemozilla_widgets_init() {
 
-  	register_sidebar( array(
-    	'name' => __( 'Sidebar', 'onemozilla' ),
-    	'id' => 'sidebar',
-    	'before_widget' => '<aside id="%1$s" class="widget %2$s">',
-    	'after_widget' => "</aside>",
-    	'before_title' => '<h3 class="widget-title">',
-    	'after_title' => '</h3>',
-  	));
-  
-  	register_sidebar(array(
-		'name' => __( 'Top Menu', 'onemozilla' ),
-		'id'   => 'topmenu',
-		'description'   => 'Zgornji menu.',
-		'before_widget' => '<aside id="%1$s" class="widget %2$s">',
-   		'after_widget' => "</aside>"
-	));
-	
-	register_sidebar(array(
-		'name' => __( 'Mobile Menu', 'onemozilla' ),
-		'id'   => 'mobilemenu',
-		'description'   => 'Menu za mobine naprave.',
-		'before_widget' => '<aside id="%1$s" class="widget %2$s">',
-   		'after_widget' => "</aside>"
-	));
-	
-	register_sidebar(array(
-		'name' => __( 'Footer Menu', 'onemozilla' ),
-		'id'   => 'footermenu',
-		'description'   => 'Menu v nogi spletne strani.',
-		'before_widget' => '<aside id="%1$s" class="widget %2$s">',
-   		'after_widget' => "</aside>"
-	));
-	
-	register_sidebar(array(
-		'name' => __( 'Get Firefox', 'onemozilla' ),
-		'id'   => 'getfirefox',
-		'description'   => 'Prenesi Firefox',
-		'before_widget' => '<aside id="%1$s" class="widget %2$s">',
-   		'after_widget' => "</aside>"
-	));
-	
-	register_sidebar(array(
-		'name' => __( 'Slider', 'onemozilla' ),
-		'id'   => 'slider',
-		'description'   => 'Slike',
-		'before_widget' => '<aside id="%1$s" class="widget %2$s">',
-   		'after_widget' => "</aside>"
-	));
-	
-	register_sidebar(array(
-		'name' => __( 'Newsletter', 'onemozilla' ),
-		'id'   => 'newsletter',
-		'description'   => 'Mailing lista.',
-		'before_widget' => '<aside id="%1$s" class="widget %2$s">',
-   		'after_widget' => "</aside>"
-	));
-	
-	register_sidebar(array(
-		'name' => __( 'Social', 'onemozilla' ),
-		'id'   => 'socialbar',
-		'description'   => 'Povezave do socialnih omrežji.',
-		'before_widget' => '<aside id="%1$s" class="widget %2$s">',
-   		'after_widget' => "</aside>"
-	));
+  register_sidebar( array(
+    'name' => __( 'Sidebar', 'onemozilla' ),
+    'id' => 'sidebar',
+    'before_widget' => '<aside id="%1$s" class="widget %2$s">',
+    'after_widget' => "</aside>",
+    'before_title' => '<h3 class="widget-title">',
+    'after_title' => '</h3>',
+  ) );
 
 }
 add_action( 'widgets_init', 'onemozilla_widgets_init' );
-
 
 
 /**********
@@ -591,7 +663,7 @@ function onemozilla_comment($comment, $args, $depth) {
       <a href="<?php echo htmlspecialchars( get_comment_link( $comment->comment_ID ) ); ?>" rel="bookmark" title=" <?php _e('Permanent link to this comment by ','onemozilla'); comment_author(); ?>">
       <time class="published" datetime="<?php comment_date('Y-m-d'); ?>" title="<?php comment_date('Y-m-d'); ?>">
       <?php /* L10N: Trackback headings read "Trackback from <Site> on <Date> at <Time>:" */ ?>
-      <?php printf( __('%1$s at %2$s','onemozilla'), get_comment_date($date_format), get_comment_time($time_format) ); ?></time></a>:</span></time></a>:</span>
+      <?php printf( __('%1$s at %2$s','onemozilla'), get_comment_date($date_format), get_comment_time($time_format) ); ?></time></a>:</span>
     </h3>
   <?php elseif ( $comment_type == 'pingback' ) : ?>
     <h3 class="entry-title"><?php _e( 'Pingback from ', 'onemozilla' ); ?> <cite><?php esc_html(comment_author_link()); ?></cite>
@@ -600,7 +672,7 @@ function onemozilla_comment($comment, $args, $depth) {
       <a href="<?php echo htmlspecialchars( get_comment_link( $comment->comment_ID ) ); ?>" rel="bookmark" title="<?php _e('Permanent link to this comment by ','onemozilla'); comment_author(); ?>">
       <time class="published" datetime="<?php comment_date('Y-m-d'); ?>" title="<?php comment_date('Y-m-d'); ?>">
       <?php /* L10N: Pingback headings read "Pingback from <Site> on <Date> at <Time>:" */ ?>
-      <?php printf( __('%1$s at %2$s','onemozilla'), get_comment_date($date_format), get_comment_time($time_format) ); ?></time></a>:</span></time></a>:</span>
+      <?php printf( __('%1$s at %2$s','onemozilla'), get_comment_date($date_format), get_comment_time($time_format) ); ?></time></a>:</span>
     </h3>
   <?php else : ?>
     <?php if ( ( $comment->comment_author_url != "http://" ) && ( $comment->comment_author_url != "" ) ) : // if author has a link ?>
@@ -615,7 +687,7 @@ function onemozilla_comment($comment, $args, $depth) {
         <a href="<?php echo htmlspecialchars( get_comment_link( $comment->comment_ID ) ); ?>" rel="bookmark" title="<?php _e('Permanent link to this comment by ','onemozilla'); comment_author(); ?>">
         <time class="published" datetime="<?php comment_date('Y-m-d'); ?>" title="<?php comment_date('Y-m-d'); ?>">
         <?php /* L10N: Comment headings read "<Name> wrote on <Date> at <Time>:" */ ?>
-        <?php printf( __('%1$s at %2$s','onemozilla'), get_comment_date($date_format), get_comment_time($time_format) ); ?></time></a>:</span></time></a>:</span>
+        <?php printf( __('%1$s at %2$s','onemozilla'), get_comment_date($date_format), get_comment_time($time_format) ); ?></time></a>:</span>
      </h3>
     <?php else : // author has no link ?>
       <h3 class="entry-title vcard">
@@ -656,7 +728,7 @@ class moz_widget_featuredPosts extends WP_Widget {
 
   function moz_widget_featuredPosts() {
     $widget_options = array(
-      'description'=>__('This widget shows the three most recent featured posts.')
+      'description'=>__('This widget shows the three most recent featured posts.', 'onemozilla')
     );
     $this->WP_Widget('moz_widget_featuredPosts','Featured Posts',$widget_options);
   }
@@ -692,7 +764,7 @@ function moz_featuredPosts($args) {
               <?php if (has_post_thumbnail()) : ?>
                 <?php the_post_thumbnail(array(115,115), array('alt' => "", 'title' => "")); ?>
               <?php else : ?>
-                <img src="<?php echo get_stylesheet_directory_uri(); ?>/img/featured.png" alt="" width="115" height="115" class="wp-post-image">
+                <img src="<?php echo get_template_directory_uri(); ?>/img/featured.png" alt="" width="115" height="115" class="wp-post-image">
               <?php endif; ?>
               </span>
               <?php the_title(); ?>
@@ -707,15 +779,8 @@ function moz_featuredPosts($args) {
 }
 
 function featuredposts_widget_init() {
-    register_widget("moz_widget_featuredPosts");
+  register_widget("moz_widget_featuredPosts");
 }
 add_action("widgets_init","featuredposts_widget_init");
-
-function add_first_and_last($output) {
-  $output = preg_replace('/class="menu-item/', 'class="first menu-item', $output, 1);
-  $output = substr_replace($output, 'class="last menu-item', strripos($output, 'class="menu-item'), strlen('class="menu-item'));
-  return $output;
-}
-add_filter('wp_nav_menu', 'add_first_and_last');
 
 ?>
